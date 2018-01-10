@@ -8,11 +8,47 @@ from database_setup import Base, Theme, Painting, User
 from flask import session as login_session
 import random, string
 
+from oauth2client.client import flow_from_clientsecrets
+from oauth2client.client import FlowExchangeError
+import httplib2
+import json
+from flask import make_response
+import requests
+
+
 engine = create_engine('sqlite:///artportfolio.db')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind = engine)
 session = DBSession()
 
+
+
+#################################
+# Making API Endpoints
+#################################
+
+@app.route('/themes/JSON')
+def showThemesJSON():
+    themes = session.query(Theme).all()
+    return jsonify(j_theme = [i.serialize for i in themes])
+
+
+@app.route('/themes/<int:theme_id>/paintings/JSON')
+def showPaintingsJSON(theme_id):
+    theme = session.query(Theme).filter_by(id=theme_id).one()
+    paintings = session.query(Painting).filter_by(theme_id=theme_id).all()
+    return jsonify(j_paintings=[i.serialize for i in paintings])
+
+
+@app.route('/themes/<int:theme_id>/paintings/<int:paintings_id>/JSON')
+def showOnePaintingJSON(theme_id, paintings_id):
+    painting = session.query(Painting).filter_by(theme_id=theme_id, id = paintings_id).one()
+    return jsonify(j_painting = painting.serialize)
+
+
+#################################
+#
+#################################
 
 # Show all themes
 @app.route('/')
