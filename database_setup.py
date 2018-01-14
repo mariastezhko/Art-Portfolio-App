@@ -6,13 +6,6 @@ from sqlalchemy import create_engine
 
 Base = declarative_base()
 
-class User(Base):
-    __tablename__ = 'user'
-
-    id = Column(Integer, primary_key = True)
-    name = Column(String(80), nullable = False)
-    email = Column(String(80), nullable = False)
-    picture = Column(String(250))
 
 class Theme(Base):
     __tablename__ = 'theme'
@@ -30,6 +23,20 @@ class Theme(Base):
             'id': self.id,
         }
 
+class Painting(Base):
+    __tablename__ = 'painting'
+
+    name = Column(String(80), nullable = False)
+    id = Column(Integer, primary_key = True)
+    year = Column(String(4))
+    description = Column(String(250))
+    #imageurl = Column(String(250))
+    theme_id = Column(Integer, ForeignKey('theme.id'))
+    theme = relationship(Theme)
+
+
+    # We added this serialize function to be able to send JSON objects in a
+# serializable format
     @property
     def serialize(self):
 
