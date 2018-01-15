@@ -1,19 +1,21 @@
-from flask import Flask, render_template, url_for, redirect, request, flash, jsonify
-app = Flask(__name__)
-
+from collections import OrderedDict
+from flask import Flask, render_template, url_for, redirect, request
+from flask import flash, jsonify
+from flask import session as login_session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database_setup import Base, Theme, Painting, User
-
-from flask import session as login_session
-import random, string
-
+import random
+import string
+from flask_uploads import UploadSet, IMAGES, configure_uploads
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
 import httplib2
 import json
 from flask import make_response
 import requests
+app = Flask(__name__)
+
 
 CLIENT_ID = json.loads(
     open('client_secrets.json', 'r').read())['web']['client_id']
@@ -21,8 +23,13 @@ APPLICATION_NAME = "Art Portfolio Application"
 
 engine = create_engine('sqlite:///artportfolio.db')
 Base.metadata.bind = engine
-DBSession = sessionmaker(bind = engine)
+DBSession = sessionmaker(bind=engine)
 session = DBSession()
+
+# Configure the image uploading via Flask-Uploads
+images = UploadSet('images', IMAGES)
+configure_uploads(app, images)
+
 
 # Create anti-forgery state token
 @app.route('/login')
@@ -33,6 +40,7 @@ def showLogin():
     login_session['state'] = state
     # return "The current session state is %s" % login_session['state']
     return render_template('login.html', STATE=state)
+
 
 #################################
 # Google authentification
@@ -263,7 +271,7 @@ def fbdisconnect():
 
 
 #################################
-# Making API Endpoints
+# JSON Endpoints
 #################################
 
 @app.route('/themes/JSON')
@@ -286,7 +294,7 @@ def showOnePaintingJSON(theme_id, paintings_id):
 
 
 #################################
-#
+# CRUD operations
 #################################
 
 # Show all themes
@@ -295,7 +303,7 @@ def showOnePaintingJSON(theme_id, paintings_id):
 def showThemes():
     themes = session.query(Theme).all()
     if 'username' not in login_session:
-        return render_template('themes.html', themes=themes)
+        return render_template('publicthemes.html', themes=themes)
     else:
         return render_template('themes.html', themes=themes)
 
@@ -306,131 +314,252 @@ def newTheme():
     if 'username' not in login_session:
         return redirect('/login')
     if request.method == 'POST':
-        new_theme = Theme(name = request.form['name'],
-            user_id = login_session['user_id'])
-        print("new theme", new_theme)
-        session.add(new_theme)
-        session.commit()
-        flash("new theme created!")
-        print("new theme created")
-        return redirect(url_for('showThemes'))
+        theme_to_add = request.form['name']
+        print("theme to add", theme_to_add)
+        theme_exists = session.query(Theme).filter_by(
+                                     name=theme_to_add).first()
+        if theme_exists:
+            flash("Theme '%s' already exists" % theme_to_add)
+            print("Theme %s already exists" % theme_to_add)
+            return render_template('newtheme.html')
+        else:
+            new_theme = Theme(name=request.form['name'],
+                              user_id=login_session['user_id'])
+            print("new theme", new_theme)
+            session.add(new_theme)
+            session.commit()
+            flash("New theme '%s' has been created" % new_theme.name)
+            print("new theme created", new_theme.id)
+            return redirect(url_for('showThemes'))
     else:
         return render_template('newtheme.html')
 
 
 # Edit a theme
-@app.route('/themes/<int:theme_id>/edit', methods=['GET', 'POST'])
-def editTheme(theme_id):
+@app.route('/themes/<path:theme_name>/edit', methods=['GET', 'POST'])
+def editTheme(theme_name):
     if 'username' not in login_session:
         return redirect('/login')
-    edited_theme = session.query(Theme).filter_by(id = theme_id).one()
-    if edited_theme.user_id != login_session['user_id']:
-        return "<script>function myFunction() {alert('You are not authorized \
-        to edit this theme.');}</script><body onload='myFunction()''>"
+    edited_theme = session.query(Theme).filter_by(name=theme_name).one()
+    temp = edited_theme.name
     if request.method == 'POST':
-        if request.form['name']:
-            edited_theme.name = request.form['name']
+        theme_new_name = request.form['name']
+        print("theme to add", theme_new_name)
+        theme_exists = session.query(Theme).filter_by(
+                                     name=theme_new_name).first()
+        if theme_exists:
+            flash("Theme '%s' already exists" % theme_new_name)
+            print("Theme %s already exists" % theme_new_name)
+            return render_template('edittheme.html', edited_theme=edited_theme)
+        else:
+            if request.form['name']:
+                edited_theme.name = request.form['name']
         session.add(edited_theme)
         session.commit()
-        flash("Theme has been edited!")
+        flash("Theme '%s' has been edited" % temp)
         return redirect(url_for('showThemes'))
     else:
         return render_template('edittheme.html', edited_theme=edited_theme)
 
 
 # Delete a theme
-@app.route('/themes/<int:theme_id>/delete', methods=['GET', 'POST'])
-def deleteTheme(theme_id):
+@app.route('/themes/<path:theme_name>/delete', methods=['GET', 'POST'])
+def deleteTheme(theme_name):
     if 'username' not in login_session:
         return redirect('/login')
-    deleted_theme = session.query(Theme).filter_by(id = theme_id).one()
-    if deleted_theme.user_id != login_session['user_id']:
-        return "<script>function myFunction() {alert('You are not authorized \
-        to delete this theme.');}</script><body onload='myFunction()''>"
+    deleted_theme = session.query(Theme).filter_by(name=theme_name).one()
+    deleted_paintings = session.query(Painting).filter_by(
+                                      theme_id=deleted_theme.id).all()
+    print("Paintings to delete", deleted_paintings)
     if request.method == 'POST':
         session.delete(deleted_theme)
+        for i in deleted_paintings:
+            print("deleting painting", i)
+            session.delete(i)
         session.commit()
-        flash("Theme has been deleted!")
+        flash("Theme '%s' has been deleted" % deleted_theme.name)
+        print("theme deleted", deleted_theme.id)
         return redirect(url_for('showThemes'))
     else:
         return render_template('deletetheme.html', deleted_theme=deleted_theme)
 
 
 # Show all paintings
-@app.route('/themes/<int:theme_id>/')
-@app.route('/themes/<int:theme_id>/paintings')
-def showPaintings(theme_id):
-    theme = session.query(Theme).filter_by(id = theme_id).one()
+@app.route('/themes/<path:theme_name>/')
+@app.route('/themes/<path:theme_name>/paintings')
+def showPaintings(theme_name):
+    theme = session.query(Theme).filter_by(name=theme_name).one()
     themes = session.query(Theme).all()
-    paintings = session.query(Painting).filter_by(theme_id = theme.id).all()
+    paintings = session.query(Painting).filter_by(theme_id=theme.id).all()
     creator = getUserInfo(theme.user_id)
-    if 'username' not in login_session or creator.id != login_session['user_id']:
-        return render_template('publicpaintings.html', theme=theme, themes=themes, paintings=paintings,
-        creator = creator)
+    if ('username' not in login_session):
+        return render_template('publicpaintings.html',
+                               theme=theme, themes=themes, paintings=paintings,
+                               creator=creator)
     else:
-        return render_template('paintings.html', theme=theme, themes=themes, paintings=paintings,
-        creator = creator)
+        current_user_id = login_session['user_id']
+        return render_template('paintings.html', theme=theme, themes=themes,
+                               paintings=paintings, creator=creator,
+                               current_user_id=current_user_id)
+
+
+# Show one particular painting
+@app.route('/themes/<path:theme_name>/paintings/<path:paintings_name>')
+def showPainting(theme_name, paintings_name):
+    print ("*****theme*****", theme_name)
+    theme = session.query(Theme).filter_by(name=theme_name).one()
+    painting = session.query(Painting).filter_by(name=paintings_name,
+                                                 theme_id=theme.id).one()
+    creator = getUserInfo(theme.user_id)
+    if ('username' not in login_session or
+            creator.id != login_session['user_id']):
+        return render_template('publicpainting.html', theme=theme,
+                               painting=painting, creator=creator)
+    else:
+        return render_template('painting.html', theme=theme, painting=painting,
+                               creator=creator)
 
 
 # Add new painting
-@app.route('/themes/<int:theme_id>/paintings/new', methods=['GET', 'POST'])
-def newPainting(theme_id):
+@app.route('/themes/<path:theme_name>/paintings/new', methods=['GET', 'POST'])
+def newPainting(theme_name):
     if 'username' not in login_session:
         return redirect('/login')
     if request.method == 'POST':
-        new_painting = Painting(name = request.form['name'], theme_id = theme_id,
-            user_id = login_session['user_id'])
-        new_painting.description = request.form['description']
-        new_painting.year = request.form['year']
-        session.add(new_painting)
-        session.commit()
-        flash("new painting created!")
-        return redirect(url_for('showPaintings', theme_id = theme_id))
+        themes = session.query(Theme).all()
+        painting_to_add = request.form['name']
+        painting_exists = \
+            session.query(Painting).filter_by(name=painting_to_add).first()
+        if painting_exists:
+            flash("Painting '%s' already exists" % painting_to_add)
+            return render_template('newpainting.html', theme_name=theme_name,
+                                   themes=themes)
+        else:
+            theme_name = request.form['themename']
+            theme = session.query(Theme).filter_by(name=theme_name).first()
+            theme_id = theme.id
+            new_painting = Painting(name=request.form['name'],
+                                    theme_id=theme_id,
+                                    user_id=login_session['user_id'])
+            new_painting.description = request.form['description']
+            new_painting.year = request.form['year']
+            session.add(new_painting)
+            session.commit()
+            flash("New painting '%s' has been added" % new_painting.name)
+            return redirect(url_for('showPaintings', theme_name=theme_name))
     else:
-        return render_template('newpainting.html', theme_id = theme_id)
+        themes = session.query(Theme).all()
+        return render_template('newpainting.html', theme_name=theme_name,
+                               themes=themes)
 
 
 # Edit a painting
-@app.route('/themes/<int:theme_id>/paintings/<int:paintings_id>/edit', methods=['GET', 'POST'])
-def editPainting(theme_id, paintings_id):
+@app.route('/themes/<path:theme_name>/paintings/<path:paintings_name>/edit',
+           methods=['GET', 'POST'])
+def editPainting(theme_name, paintings_name):
     if 'username' not in login_session:
         return redirect('/login')
-    edited_painting = session.query(Painting).filter_by(id = paintings_id, theme_id = theme_id).one()
+    theme = session.query(Theme).filter_by(name=theme_name).one()
+    edited_painting = \
+        session.query(Painting).filter_by(name=paintings_name,
+                                          theme_id=theme.id).one()
+    if edited_painting.user_id != login_session['user_id']:
+        alert = "<script>function myFunction()"
+        alert += " {alert('Sorry, you can only edit paintings added "
+        alert += "by you.'); window.history.back();}</script>"
+        alert += "<body onload='myFunction()'>"
+        return alert
     if request.method == 'POST':
-        if request.form['name']:
-            edited_painting.name = request.form['name']
-        session.add(edited_painting)
-        session.commit()
-        if request.form['description']:
-            edited_painting.description = request.form['description']
-        session.add(edited_painting)
-        session.commit()
-        if request.form['year']:
-            edited_painting.year = request.form['year']
-        session.add(edited_painting)
-        session.commit()
-        flash("Painting has been edited!")
-        return redirect(url_for('showPaintings', theme_id = theme_id))
+        theme = session.query(Theme).filter_by(id=theme.id).first()
+        themes = session.query(Theme).all()
+        painting_to_edit = request.form['name']
+        painting_exists = \
+            session.query(Painting).filter_by(name=painting_to_edit).first()
+        if painting_exists:
+            flash("Painting '%s' already exists" % painting_to_edit)
+            print("Painting %s already exists" % painting_to_edit)
+            return render_template('editpainting.html', theme_id=theme.id,
+                                   theme_name=theme.name,
+                                   edited_painting=edited_painting,
+                                   themes=themes)
+        else:
+            theme_name = request.form['themename']
+            theme = session.query(Theme).filter_by(name=theme_name).first()
+            theme_id = theme.id
+            if request.form['name']:
+                edited_painting.name = request.form['name']
+            if request.form['description']:
+                edited_painting.description = request.form['description']
+            if request.form['year']:
+                edited_painting.year = request.form['year']
+            if request.form['themename']:
+                theme_name = request.form['themename']
+                theme = session.query(Theme).filter_by(name=theme_name).first()
+                edited_painting.theme_id = theme.id
+            session.add(edited_painting)
+            session.commit()
+        flash("Painting '%s' has been edited" % edited_painting.name)
+        return redirect(url_for('showPaintings', theme_name=theme_name))
     else:
-        return render_template('editpainting.html', theme_id=theme_id, painting_id=paintings_id, edited_painting = edited_painting)
+        theme = session.query(Theme).filter_by(id=theme.id).first()
+        themes = session.query(Theme).all()
+        return render_template('editpainting.html', theme_id=theme.id,
+                               theme_name=theme.name,
+                               edited_painting=edited_painting,
+                               themes=themes)
 
 
 # Delete a painting
-@app.route('/themes/<int:theme_id>/paintings/<int:paintings_id>/delete', methods=['GET', 'POST'])
-def deletePainting(theme_id, paintings_id):
+@app.route('/themes/<path:theme_name>/paintings/<path:paintings_name>/delete',
+           methods=['GET', 'POST'])
+def deletePainting(theme_name, paintings_name):
     if 'username' not in login_session:
         return redirect('/login')
-    deleted_painting = session.query(Painting).filter_by(id = paintings_id, theme_id = theme_id).one()
+    theme = session.query(Theme).filter_by(name=theme_name).one()
+    deleted_painting = \
+        session.query(Painting).filter_by(name=paintings_name,
+                                          theme_id=theme.id).one()
     if request.method == 'POST':
         session.delete(deleted_painting)
         session.commit()
-        flash("Painting has been deleted!")
-        return redirect(url_for('showPaintings', theme_id = theme_id))
+        flash("Painting '%s' has been deleted" % deleted_painting.name)
+        return redirect(url_for('showPaintings', theme_name=theme_name))
     else:
-        return render_template('deletepainting.html', theme_id=theme_id, painting_id=paintings_id, deleted_painting = deleted_painting)
+        return render_template('deletepainting.html', theme_name=theme_name,
+                               deleted_painting=deleted_painting)
+
+
+#################################
+# Helper functions for user authentification
+#################################
+
+# Retrieve a user ID based on the email address
+def getUserID(email):
+    try:
+        user = session.query(User).filter_by(email=email).one()
+        return user.id
+    except:
+        return None
+
+
+# Retrieve a user info from the database
+def getUserInfo(user_id):
+    user = session.query(User).filter_by(id=user_id).one()
+    return user
+
+
+# Create a new user in the database
+def createUser(login_session):
+    newUser = \
+        User(name=login_session['username'], email=login_session['email'],
+             picture=login_session['picture'])
+    session.add(newUser)
+    session.commit()
+    user = session.query(User).filter_by(email=login_session['email']).one()
+    return user.id
 
 
 if __name__ == '__main__':
     app.secret_key = 'super_secret_key'
     app.debug = True
-    app.run(host = '0.0.0.0', port = 8000)
+    app.run(host='0.0.0.0', port=8000)
