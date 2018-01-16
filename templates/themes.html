@@ -1,0 +1,28 @@
+{% extends "main.html" %}
+{% block content %}
+{% include "header.html" %}
+
+<div class="col-md-12 text-center">
+		<a href = '{{ url_for('newTheme') }}'>Add New Theme</a>
+</div>
+<div class = "flash col-md-12 text-center">
+		{% with messages = get_flashed_messages() %}
+		{% if messages %}
+			{% for message in messages %}
+					 {{ message }}
+			{% endfor %}
+		{% endif %}
+		{% endwith %}
+</div>
+<div class="col-md-12">
+		<div class="image">
+				<img class="center-block img-responsive" src="../static/img/Hummingbird.jpg" alt="Main image"/>
+				<h2>
+					{% for theme in themes %}
+							<a href = "{{url_for('showPaintings', theme_name = theme.name)}}">{{theme.name}}</a>
+					{% endfor %}
+				</h2>
+	  </div>
+</div>
+
+{% endblock %}

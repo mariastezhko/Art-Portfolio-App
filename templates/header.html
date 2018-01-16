@@ -1,0 +1,10 @@
+  <div class="col-md-12 text-right button">
+    {%if 'username' not in session %}
+        <a href="{{url_for('showLogin')}}"><h4 class="login-logout">Sign in</h4></a>
+    {% else %}
+        <a href="{{url_for('disconnect')}}"><h4 class="login-logout">Sign out</h4></a>
+    {% endif %}
+  </div>
+  <div class="col-md-12">
+    <h1 class="text-center">Art Portfolio</h1>
+  </div>

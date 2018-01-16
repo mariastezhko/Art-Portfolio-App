@@ -1,0 +1,49 @@
+{% extends "main.html" %}
+{% block content %}
+{% include "header.html" %}
+
+<div class="col-md-3">
+  <a href = '{{ url_for('newTheme') }}'>Add New Theme</a>
+  <br>
+  <a href = '{{ url_for('newPainting', theme_name = theme.name) }}'>Add New Painting</a>
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}
+      {% for message in messages %}
+        <p>{{ message }}</p>
+      {% endfor %}
+  {% endif %}
+  {% endwith %}
+
+  {% for theme in themes %}
+    <a href = "{{url_for('showPaintings', theme_name = theme.name, theme_id = theme.id)}}">
+    <h3>{{theme.name}}</h3>
+    </a>
+    {% if theme.user_id == current_user_id %}
+        <a href='{{url_for('editTheme', theme_name = theme.name)}}'>Edit</a> |
+        <a href='{{url_for('deleteTheme', theme_name = theme.name)}}'>Delete</a>
+        {% endif %}
+  {% endfor %}
+</div>
+<div class="col-md-9">
+  <h3 class="text-center theme-name">{{ theme.name }}</h3>
+  {% for i in paintings %}
+    <div class="col-md-4 text-center">
+      {% if i.image_url %}
+        <a href = "{{url_for('showPainting', theme_name = theme.name, paintings_name = i.name)}}">
+        <img class="painting" src="{{ i.image_url }}" alt="{{ i.image_filename }}">
+        </a>
+      {% endif %}
+      <br>
+      {{i.name}}
+      <br>
+      {{i.year}}
+      <br>
+      {% if theme.user_id == current_user_id %}
+          <a href='{{url_for('editPainting', theme_name = theme.name, paintings_name = i.name)}}'>Edit</a> |
+          <a href='{{url_for('deletePainting', theme_name = theme.name, paintings_name = i.name)}}'>Delete</a>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+		    <meta charset="utf-8">
+		     <meta http-equiv="X-UA-Compatible" content="IE=edge">
+		     <meta name="viewport" content="width=device-width, initial-scale=1">
+		     <title>Art Portfolio</title>
+		     <link href="https://fonts.googleapis.com/css?family=Great+Vibes" rel="stylesheet">
+		     <link href="https://fonts.googleapis.com/css?family=Great+Vibes|Homemade+Apple" rel="stylesheet">
+		     <link href="https://fonts.googleapis.com/css?family=Clicker+Script|Dancing+Script|Great+Vibes|Homemade+Apple|Rochester" rel="stylesheet">
+		     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+		     <link rel="stylesheet" type='text/css' href="{{ url_for('static', filename='css/styles.css') }}">
+	  </head>
+    <body>
+		     <div class="container">
+			        {% block content %}
+			        {% endblock %}
+		     </div>
+	  </body>
+</html>

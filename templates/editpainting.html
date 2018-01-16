@@ -1,0 +1,33 @@
+{% extends "main.html" %}
+{% block content %}
+{% include "header.html" %}
+
+<div class="col-md-12">
+    <h3 class="text-center">Edit Painting</h3>
+</div>
+<div class="col-md-12 text-center">
+    <form action="{{ url_for('editPainting', theme_name = theme_name, paintings_name = edited_painting.name)}}" method = 'post' enctype="multipart/form-data">
+        <p>Name:</p>
+        <input type='text' size='30' name='name' placeholder='{{edited_painting.name}}'>
+        <p>Description:</p>
+        <textarea name='description' rows="5" cols="29" placeholder='{{edited_painting.description}}'></textarea>
+        <p>Year:</p>
+        <input type='text' size='4' name='year' placeholder='{{edited_painting.year}}'>
+        <p>Theme:</p>
+        <select name='themename'>
+          {% for theme in themes %}
+            {% if theme.id == theme_id %}
+                <option selected="selected" value="{{theme.name}}">{{theme.name}}</option>
+            {% else %}
+                <option value="{{theme.name}}">{{theme.name}}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        <p>Image:</p>
+        <input type="file" name="imgfile">
+        <input type="submit" value="Edit">
+        <a href = "{{url_for('showPaintings', theme_name = theme_name)}}"><h4>Cancel</h4></a>
+    </form>
+</div>
+
+{% endblock %}
