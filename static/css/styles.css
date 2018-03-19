@@ -1,0 +1,113 @@
+* {
+ margin: 0px;
+ padding: 0px;
+}
+
+body {
+  font-size: 15px;
+  text-align: center;
+}
+
+h1 {
+  font-family: 'Clicker Script', cursive;
+  font-size: 90px;
+  margin-top: 30px;
+  margin-bottom: 30px;
+}
+
+.image {
+  margin: auto;
+  position: relative;
+}
+
+.image a {
+  display: block;
+}
+
+a {
+  text-decoration: none;
+}
+
+h2 {
+  position: absolute;
+  top: 140px;
+  text-align: center;
+  width: 100%;
+  font-family: 'Clicker Script', cursive;
+  font-size: 40px;
+}
+
+.center {
+  margin: auto;
+}
+
+.button {
+  margin-right: 50px;
+  margin-top: 10px;
+}
+
+.flash {
+  font-size: 15px;
+}
+
+h4 {
+  font-size: 25px;
+  font-family: 'Clicker Script', cursive;
+}
+
+.login-logout {
+  font-size: 25px;
+  font-family: 'Clicker Script', cursive;
+}
+
+h3 {
+  font-size: 50px;
+  font-family: 'Clicker Script', cursive;
+}
+
+.painting {
+  height: auto;
+  width: auto;
+  max-width: 250px;
+  max-height: 250px;
+  border-width: thin;
+  border-color: black;
+  border-style: dashed;
+}
+
+/*.input-file {
+  text-align: center;
+  margin: auto;
+  position: absolute;
+  left: 42%;
+  margin-bottom: 20px;
+}*/
+
+input[type="file"] {
+  margin: auto;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+input[type="submit"] {
+  margin-bottom: 20px;
+}
+
+input[type="text"] {
+  margin-bottom: 20px;
+}
+
+select {
+  margin-bottom: 20px;
+}
+
+#login_container {
+  width: 500px;
+  margin: 0px auto;
+  margin-top: 250px;
+}
+
+#login_container h1 {
+  text-align: center;
+  font-size: 50px;
+}

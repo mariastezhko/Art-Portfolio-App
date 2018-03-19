@@ -67,6 +67,6 @@ Access the application by visiting http://localhost:8000 locally.
 
 /themes/JSON - Displays all themes
 
-/themes/<theme_name>/paintings/JSON - Displays paintings for a specific theme
+/themes/<path:theme_name>/paintings/JSON - Displays paintings for a specific theme
 
-/themes/<theme_name>/paintings/<paintings_name>/JSON - Displays a specific painting.
+/themes/<path:theme_name>/paintings/<path:paintings_name>/JSON - Displays a specific painting.

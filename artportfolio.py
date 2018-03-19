@@ -16,6 +16,12 @@ from flask import make_response
 import requests
 app = Flask(__name__)
 
+# Override the default order of serializing JSON objects
+app.config["JSON_SORT_KEYS"] = False
+
+app.config['UPLOADED_IMAGES_DEST'] = 'static/img'
+app.config['UPLOADED_IMAGES_URL'] = 'http://localhost:8000/static/img/'
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
 
 CLIENT_ID = json.loads(
     open('client_secrets.json', 'r').read())['web']['client_id']
@@ -274,23 +280,44 @@ def fbdisconnect():
 # JSON Endpoints
 #################################
 
+@app.route('/artportfolio.json')
+def showPortfolioJSON():
+    output = []
+    themes = session.query(Theme).all()
+    for theme in themes:
+        paintings = session.query(Painting).filter_by(theme_id=theme.id)
+        theme_output = OrderedDict()
+        theme_output["id"] = theme.id
+        theme_output["name"] = theme.name
+        theme_output["Paintings"] = [i.serialize for i in paintings]
+        print(theme_output)
+        output.append(theme_output)
+    return jsonify(Themes=output)
+
+
 @app.route('/themes/JSON')
 def showThemesJSON():
     themes = session.query(Theme).all()
-    return jsonify(j_theme = [i.serialize for i in themes])
+    return jsonify(j_theme=[i.serialize for i in themes])
 
 
-@app.route('/themes/<int:theme_id>/paintings/JSON')
-def showPaintingsJSON(theme_id):
-    theme = session.query(Theme).filter_by(id=theme_id).one()
-    paintings = session.query(Painting).filter_by(theme_id=theme_id).all()
+@app.route('/themes/<path:theme_name>/paintings/JSON')
+def showPaintingsJSON(theme_name):
+    theme_name = theme_name.title()
+    theme = session.query(Theme).filter_by(name=theme_name).one()
+    print ("theme", theme)
+    paintings = session.query(Painting).filter_by(theme_id=theme.id).all()
     return jsonify(j_paintings=[i.serialize for i in paintings])
 
 
-@app.route('/themes/<int:theme_id>/paintings/<int:paintings_id>/JSON')
-def showOnePaintingJSON(theme_id, paintings_id):
-    painting = session.query(Painting).filter_by(theme_id=theme_id, id = paintings_id).one()
-    return jsonify(j_painting = painting.serialize)
+@app.route('/themes/<path:theme_name>/paintings/<path:paintings_name>/JSON')
+def showOnePaintingJSON(theme_name, paintings_name):
+    theme_name = theme_name.title()
+    paintings_name = paintings_name.title()
+    theme = session.query(Theme).filter_by(name=theme_name).one()
+    painting = session.query(Painting).filter_by(name=paintings_name,
+                                                 theme_id=theme.id).one()
+    return jsonify(j_painting=painting.serialize)
 
 
 #################################
@@ -342,6 +369,12 @@ def editTheme(theme_name):
         return redirect('/login')
     edited_theme = session.query(Theme).filter_by(name=theme_name).one()
     temp = edited_theme.name
+    if edited_theme.user_id != login_session['user_id']:
+        alert = "<script>function myFunction()"
+        alert += " {alert('Sorry, you can only edit themes created by you.');"
+        alert += " window.history.back();}</script>"
+        alert += "<body onload='myFunction()'>"
+        return alert
     if request.method == 'POST':
         theme_new_name = request.form['name']
         print("theme to add", theme_new_name)
@@ -371,6 +404,13 @@ def deleteTheme(theme_name):
     deleted_paintings = session.query(Painting).filter_by(
                                       theme_id=deleted_theme.id).all()
     print("Paintings to delete", deleted_paintings)
+    if deleted_theme.user_id != login_session['user_id']:
+        alert = "<script>function myFunction()"
+        alert += " {alert('Sorry, you can only delete themes "
+        alert += "created by you.');"
+        alert += " window.history.back();}</script>"
+        alert += "<body onload='myFunction()'>"
+        return alert
     if request.method == 'POST':
         session.delete(deleted_theme)
         for i in deleted_paintings:
@@ -443,6 +483,8 @@ def newPainting(theme_name):
                                     user_id=login_session['user_id'])
             new_painting.description = request.form['description']
             new_painting.year = request.form['year']
+            new_painting.image_filename = images.save(request.files['imgfile'])
+            new_painting.image_url = images.url(new_painting.image_filename)
             session.add(new_painting)
             session.commit()
             flash("New painting '%s' has been added" % new_painting.name)
@@ -496,6 +538,11 @@ def editPainting(theme_name, paintings_name):
                 theme_name = request.form['themename']
                 theme = session.query(Theme).filter_by(name=theme_name).first()
                 edited_painting.theme_id = theme.id
+            if request.files['imgfile']:
+                edited_painting.image_filename = \
+                    images.save(request.files['imgfile'])
+                edited_painting.image_url = \
+                    images.url(edited_painting.image_filename)
             session.add(edited_painting)
             session.commit()
         flash("Painting '%s' has been edited" % edited_painting.name)
@@ -519,6 +566,13 @@ def deletePainting(theme_name, paintings_name):
     deleted_painting = \
         session.query(Painting).filter_by(name=paintings_name,
                                           theme_id=theme.id).one()
+    if deleted_painting.user_id != login_session['user_id']:
+        alert = "<script>function myFunction()"
+        alert += " {alert('Sorry, you can only delete paintings "
+        alert += "added by you.');"
+        alert += " window.history.back();}</script>"
+        alert += "<body onload='myFunction()'>"
+        return alert
     if request.method == 'POST':
         session.delete(deleted_painting)
         session.commit()
@@ -557,6 +611,28 @@ def createUser(login_session):
     session.commit()
     user = session.query(User).filter_by(email=login_session['email']).one()
     return user.id
+
+
+# Disconnect based on provider
+@app.route('/disconnect')
+def disconnect():
+    if 'provider' in login_session:
+        if login_session['provider'] == 'google':
+            gdisconnect()
+            del login_session['gplus_id']
+        if login_session['provider'] == 'facebook':
+            fbdisconnect()
+            del login_session['facebook_id']
+        del login_session['username']
+        del login_session['email']
+        del login_session['picture']
+        del login_session['user_id']
+        del login_session['provider']
+        flash("You have successfully logged out")
+        return redirect(url_for('showThemes'))
+    else:
+        flash("You were not logged in")
+        return redirect(url_for('showThemes'))
 
 
 if __name__ == '__main__':

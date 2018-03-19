@@ -42,8 +42,6 @@ class Painting(Base):
     theme = relationship(Theme)
     user_id = Column(Integer, ForeignKey('user.id'))
     user = relationship(User)
-    image_filename = Column(String(80))
-    image_url = Column(String(250))
 
 
     # We added this serialize function to be able to send JSON objects in a
@@ -58,5 +56,5 @@ class Painting(Base):
             'year': self.year,
         }
 
-engine = create_engine('sqlite:///artportfoliowithimages.db')
+engine = create_engine('sqlite:///artportfolio.db')
 Base.metadata.create_all(engine)
