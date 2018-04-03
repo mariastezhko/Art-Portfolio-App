@@ -2,6 +2,8 @@
 
 - - - -
 
+![alt map](https://raw.githubusercontent.com/mariastezhko/Art-Portfolio-App/master/static/img/artportfolio.png)
+
 ## Description
 
 `Art Portfolio` is a RESTful web application that provides a list of items within a variety of categories. `Art Portfolio` utilizes the Python framework Flask along with third-party OAuth authentication. Registered users have the ability to post, edit and delete their own items.
